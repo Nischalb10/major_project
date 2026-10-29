@@ -11,7 +11,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include "../../HammingModel.hpp"
 #include <set>
 
 #include <gnb/nts.hpp>
@@ -81,15 +80,7 @@ void RlsUdpTask::onLoop()
     int size = m_server->Receive(buffer, BUFFER_SIZE, RECEIVE_TIMEOUT, peerAddress);
     if (size > 0)
     {
-        std::string rx_payload(reinterpret_cast<char*>(buffer), size);
-        std::vector<uint8_t> rx_pdu;
-        if (rx_payload.find("5G_TEST_UNCODED") != std::string::npos) {
-            ChannelModel::simulateUncodedRX(buffer, size);
-            rx_pdu = std::vector<uint8_t>(buffer, buffer + size);
-        } else {
-            rx_pdu = ChannelModel::simulateHammingRX(buffer, size);
-        }
-        auto rlsMsg = rls::DecodeRlsMessage(OctetView{rx_pdu.data(), rx_pdu.size()});
+        auto rlsMsg = rls::DecodeRlsMessage(OctetView{buffer, static_cast<size_t>(size)});
         if (rlsMsg == nullptr)
             m_logger->err("Unable to decode RLS message");
         else
@@ -162,16 +153,7 @@ void RlsUdpTask::sendRlsPdu(const InetAddress &addr, const rls::RlsMessage &msg)
 {
     OctetString stream;
     rls::EncodeRlsMessage(msg, stream);
-
-    std::string tx_payload(reinterpret_cast<char*>(stream.data()), stream.length());
-    std::vector<uint8_t> tx_pdu;
-    if (tx_payload.find("5G_TEST_UNCODED") != std::string::npos) {
-        ChannelModel::simulateUncoded(stream.data(), stream.length(), 0.03);
-        tx_pdu = std::vector<uint8_t>(stream.data(), stream.data() + stream.length());
-    } else {
-        tx_pdu = ChannelModel::simulateHammingTX(stream.data(), stream.length(), 0.03);
-    }
-    m_server->Send(addr, tx_pdu.data(), tx_pdu.size());
+    m_server->Send(addr, stream.data(), static_cast<size_t>(stream.length()));
 }
 
 void RlsUdpTask::heartbeatCycle(int64_t time)
