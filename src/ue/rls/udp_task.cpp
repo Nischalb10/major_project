@@ -10,7 +10,7 @@
 
 #include <cstdint>
 #include <cstring>
-#include "../../GilbertElliottModel.hpp"
+#include "error_model/ErrorInjector.hpp"
 #include <set>
 
 #include <ue/nts.hpp>
@@ -78,8 +78,8 @@ void RlsUdpTask::sendRlsPdu(const InetAddress &addr, const rls::RlsMessage &msg)
     OctetString stream;
     rls::EncodeRlsMessage(msg, stream);
 
-    if (!GilbertElliottChannel::getInstance().processPacket(stream.data(), stream.length(), "UE TRANSMITTER")) {
-        return; // Dropped by Gilbert-Elliott 2-State Markov Model
+    if (nr::error_model::ErrorInjector::getInstance().shouldDropPacket(stream.data(), stream.length(), "UE TRANSMITTER")) {
+        return; // Dropped by Channel Error Injection Subsystem
     }
 
     m_server->Send(addr, stream.data(), static_cast<size_t>(stream.length()));
